@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+
+  <style>
+    body { font-family: Arial; text-align: center; background: #111; color: white; }
+    select, button { padding: 12px; font-size: 16px; margin: 5px; }
+    #scanner { width: 100%; margin-top: 10px; }
+    .card { margin: 10px; padding: 20px; border-radius: 10px; }
+    .approved { background: green; }
+    .denied { background: red; }
+  </style>
+</head>
+
+<body>
+
+<h2>QR Entry Scanner</h2>
+
+<select id="authority">
+  <option value="">Select Security Authority</option>
+  <option>Gate 1</option>
+  <option>Gate 2</option>
+  <option>Main Desk</option>
+</select>
+
+<br>
+<button onclick="startScanner()">Start Scanner</button>
+
+<div id="scanner"></div>
+<div id="result"></div>
+
+<script>
+
+const API_URL = "PASTE_YOUR_EXEC_URL_HERE";
+
+let html5QrCode;
+let lastScan = "";
+let lastTime = 0;
+
+function startScanner() {
+  const authority = document.getElementById("authority").value;
+
+  if (!authority) {
+    alert("Select Security Authority");
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(() => {
+      html5QrCode = new Html5Qrcode("scanner");
+
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (decodedText) => handleScan(decodedText, authority)
+      );
+    })
+    .catch(() => alert("Camera permission denied"));
+}
+
+function handleScan(id, authority) {
+  const now = Date.now();
+
+  if (id === lastScan && now - lastTime < 2000) return;
+
+  lastScan = id;
+  lastTime = now;
+
+  fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ id, authority })
+  })
+  .then(res => res.json())
+  .then(showResult)
+  .catch(err => alert("Error: " + err));
+}
+
+function showResult(res) {
+  const box = document.getElementById("result");
+
+  box.innerHTML = `
+    <div class="card ${res.status === 'APPROVED' ? 'approved' : 'denied'}">
+      <h2>${res.status}</h2>
+      <p>ID: ${res.id}</p>
+      <p>Name: ${res.name}</p>
+      <p>Gender: ${res.gender}</p>
+      <p>Age: ${res.age}</p>
+      <p>Facilitator: ${res.facilitator}</p>
+      <p>Passcode: ${res.passcode}</p>
+      <p>Time: ${new Date(res.timestamp).toLocaleTimeString()}</p>
+    </div>
+  `;
+}
+
+</script>
+
+</body>
+</html>
