@@ -8,7 +8,6 @@
 <style>
 body { font-family: Arial; text-align: center; background: #111; color: white; }
 select, input, button { padding: 12px; margin: 5px; font-size: 16px; border-radius: 8px; }
-#scanner { margin-top: 10px; }
 .card { margin: 10px; padding: 20px; border-radius: 10px; }
 .approved { background: green; }
 .denied { background: red; }
@@ -32,12 +31,11 @@ select, input, button { padding: 12px; margin: 5px; font-size: 16px; border-radi
 
 <br>
 
-<button onclick="startScanner()">Start Scanner</button>
+<button onclick="validateAndStart()">Start Scanner</button>
 
 <div id="scanner"></div>
 <div id="result"></div>
 
-<!-- 🔊 Sounds -->
 <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
 <audio id="failSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
@@ -49,30 +47,49 @@ let html5QrCode;
 let lastScan = "";
 let lastTime = 0;
 
-function startScanner() {
+// 🔐 VALIDATE FIRST
+function validateAndStart() {
   const authority = document.getElementById("authority").value;
   const passcode = document.getElementById("passcode").value;
 
   if (!authority) return alert("Select Security Authority");
   if (passcode.length !== 4) return alert("Enter 4-digit passcode");
 
+  const url = `${API_URL}?action=validateAuthority&authority=${authority}&passcode=${passcode}`;
+
+  fetch(url)
+    .then(res => res.json())
+    .then(res => {
+      if (res.status === "OK") {
+        startScanner(authority);
+      } else {
+        document.getElementById("failSound").play();
+        alert("Invalid passcode");
+      }
+    })
+    .catch(err => alert("Error: " + err));
+}
+
+// 🎥 START CAMERA ONLY AFTER PASSCODE OK
+function startScanner(authority) {
   html5QrCode = new Html5Qrcode("scanner");
 
   html5QrCode.start(
     { facingMode: "environment" },
     { fps: 10, qrbox: 250 },
-    (decodedText) => handleScan(decodedText, authority, passcode)
+    (decodedText) => handleScan(decodedText, authority)
   );
 }
 
-function handleScan(id, authority, passcode) {
+// 📡 SCAN
+function handleScan(id, authority) {
   const now = Date.now();
   if (id === lastScan && now - lastTime < 2000) return;
 
   lastScan = id;
   lastTime = now;
 
-  const url = `${API_URL}?id=${encodeURIComponent(id.trim())}&authority=${authority}&passcode=${passcode}`;
+  const url = `${API_URL}?action=scan&id=${encodeURIComponent(id.trim())}&authority=${authority}`;
 
   fetch(url)
     .then(res => res.json())
@@ -80,6 +97,7 @@ function handleScan(id, authority, passcode) {
     .catch(err => alert("Error: " + err));
 }
 
+// 🎯 RESULT
 function showResult(res) {
   const box = document.getElementById("result");
 
