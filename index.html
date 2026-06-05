@@ -9,43 +9,76 @@
 <style>
 
 body{
-  font-family:Arial;
-  background:#111;
-  color:white;
-  text-align:center;
-  margin:0;
+    margin:0;
+    padding:0;
+    font-family:Arial, sans-serif;
+    background:#111;
+    color:white;
+    text-align:center;
+    min-height:100vh;
+}
+
+.container{
+    padding:20px;
 }
 
 select,input,button{
-  padding:12px;
-  margin:5px;
-  font-size:16px;
-  border-radius:8px;
-  border:none;
+    width:90%;
+    max-width:400px;
+    padding:14px;
+    margin:8px;
+    border:none;
+    border-radius:10px;
+    font-size:16px;
 }
 
 button{
-  background:#1976d2;
-  color:white;
-}
-
-.card{
-  margin:10px;
-  padding:20px;
-  border-radius:12px;
-}
-
-.approved{
-  background:#0f9d58;
-}
-
-.denied{
-  background:#d93025;
+    background:#1976d2;
+    color:white;
+    font-weight:bold;
 }
 
 #scanner{
-  width:100%;
-  margin-top:10px;
+    width:100%;
+    margin-top:15px;
+}
+
+.result-screen{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    display:none;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+    z-index:9999;
+    padding:20px;
+    box-sizing:border-box;
+}
+
+.approved{
+    background:#0f9d58;
+}
+
+.denied{
+    background:#d93025;
+}
+
+.big-status{
+    font-size:52px;
+    font-weight:bold;
+    margin-bottom:20px;
+}
+
+.info{
+    font-size:22px;
+    margin:5px;
+}
+
+.hidden{
+    display:none;
 }
 
 </style>
@@ -54,23 +87,18 @@ button{
 
 <body>
 
+<div class="container">
+
 <h2>QR Entry Scanner</h2>
 
 <select id="authority">
-  <option value="">Select Security Authority</option>
-  <option value="PRP">PRP</option>
-  <option value="JBR">JBR</option>
-  <option value="PJK">PJK</option>
+    <option>Loading Authorities...</option>
 </select>
 
-<br>
-
 <input
-type="password"
-id="passcode"
-placeholder="Authority Passcode">
-
-<br>
+    type="password"
+    id="passcode"
+    placeholder="Authority Passcode">
 
 <button onclick="loginAndStart()">
 Start Scanner
@@ -78,196 +106,347 @@ Start Scanner
 
 <div id="scanner"></div>
 
-<div id="result"></div>
+</div>
+
+<div id="resultScreen" class="result-screen">
+    <div id="resultContent"></div>
+</div>
 
 <script>
 
 const API_URL =
-"https://script.google.com/macros/s/AKfycbzv74q75qmuVk_UiNmEw-PM-8oWcjguyDBiS3ZPdppgY8nH0v7PkAY2vZYLCoHwdwPj0w/exec";
+"https://script.google.com/macros/s/AKfycbzAXayC2ihWNVdLVJ0ET0rcnq9SupMWDDA5YX5oKwwGMApP7ncRthIXXVgGLR4ZZ0p2hg/exec";
 
-let html5QrCode;
-let lastScan = "";
-let lastTime = 0;
+let html5QrCode = null;
+let currentAuthority = "";
 let isProcessing = false;
+let lastScan = "";
+let lastScanTime = 0;
 
 /*
-|--------------------------------------------------------------------------
-| LOGIN
-|--------------------------------------------------------------------------
+--------------------------------------------------
+LOAD AUTHORITIES
+--------------------------------------------------
 */
-function loginAndStart() {
 
-  const authority =
-    document.getElementById("authority").value;
+loadAuthorities();
 
-  const passcode =
-    document.getElementById("passcode").value;
+function loadAuthorities(){
 
-  if (!authority) {
-    alert("Select Security Authority");
-    return;
-  }
+    fetch(API_URL + "?action=authorities")
+    .then(r => r.json())
+    .then(data => {
 
-  if (!passcode) {
-    alert("Enter Passcode");
-    return;
-  }
+        const ddl =
+        document.getElementById("authority");
 
-  fetch(
-    `${API_URL}?action=login&authority=${encodeURIComponent(authority)}&passcode=${encodeURIComponent(passcode)}`
-  )
+        ddl.innerHTML =
+        '<option value="">Select Security Authority</option>';
 
-  .then(r => r.json())
+        data.authorities.forEach(a => {
 
-  .then(res => {
+            ddl.innerHTML +=
+            `<option value="${a}">${a}</option>`;
 
-    if (res.status === "AUTHORIZED") {
-      startScanner(authority);
-    }
-    else {
-      alert("Invalid Passcode");
-    }
+        });
 
-  })
-
-  .catch(err => alert(err));
+    });
 
 }
 
 /*
-|--------------------------------------------------------------------------
-| START CAMERA
-|--------------------------------------------------------------------------
+--------------------------------------------------
+LOGIN
+--------------------------------------------------
 */
-function startScanner(authority) {
 
-  navigator.mediaDevices.getUserMedia({
-    video: true
-  })
+function loginAndStart(){
 
-  .then(() => {
+    const authority =
+    document.getElementById("authority").value;
+
+    const passcode =
+    document.getElementById("passcode").value;
+
+    if(!authority){
+        alert("Select Security Authority");
+        return;
+    }
+
+    if(!passcode){
+        alert("Enter Passcode");
+        return;
+    }
+
+    fetch(
+        API_URL +
+        "?action=login" +
+        "&authority=" + encodeURIComponent(authority) +
+        "&passcode=" + encodeURIComponent(passcode)
+    )
+    .then(r => r.json())
+    .then(res => {
+
+        if(res.status === "AUTHORIZED"){
+
+            currentAuthority = authority;
+
+            startScanner();
+
+        }else{
+
+            alert("Invalid Authority Passcode");
+
+        }
+
+    });
+
+}
+
+/*
+--------------------------------------------------
+START SCANNER
+--------------------------------------------------
+*/
+
+function startScanner(){
+
+    document.getElementById("authority").disabled=true;
+    document.getElementById("passcode").disabled=true;
 
     html5QrCode =
-      new Html5Qrcode("scanner");
+    new Html5Qrcode("scanner");
 
     html5QrCode.start(
 
-      { facingMode: "environment" },
+        { facingMode: "environment" },
 
-      {
-        fps: 10,
-        qrbox: 250
-      },
+        {
+            fps:10,
+            qrbox:250
+        },
 
-      (decodedText) => {
-        handleScan(decodedText, authority);
-      }
+        onScanSuccess
 
     );
 
-  })
+}
 
-  .catch(() => {
-    alert("Camera Permission Denied");
-  });
+/*
+--------------------------------------------------
+SCAN
+--------------------------------------------------
+*/
+
+function onScanSuccess(decodedText){
+
+    if(isProcessing){
+        return;
+    }
+
+    const now = Date.now();
+
+    if(
+        decodedText === lastScan &&
+        (now - lastScanTime) < 3000
+    ){
+        return;
+    }
+
+    lastScan = decodedText;
+    lastScanTime = now;
+
+    isProcessing = true;
+
+    html5QrCode.pause();
+
+    fetch(
+        API_URL +
+        "?action=scan" +
+        "&id=" +
+        encodeURIComponent(decodedText.trim()) +
+        "&authority=" +
+        encodeURIComponent(currentAuthority)
+    )
+    .then(r => r.json())
+    .then(showResult)
+    .finally(() => {
+
+        setTimeout(() => {
+
+            html5QrCode.resume();
+
+            isProcessing = false;
+
+        },1500);
+
+    });
 
 }
 
 /*
-|--------------------------------------------------------------------------
-| SCAN
-|--------------------------------------------------------------------------
+--------------------------------------------------
+RESULT UI
+--------------------------------------------------
 */
-function handleScan(id, authority) {
 
-  if (isProcessing) {
-    return;
-  }
+function showResult(res){
 
-  const now = Date.now();
+    const screen =
+    document.getElementById("resultScreen");
 
-  if (
-    id === lastScan &&
-    now - lastTime < 3000
-  ) {
-    return;
-  }
+    const content =
+    document.getElementById("resultContent");
 
-  lastScan = id;
-  lastTime = now;
+    if(res.status === "APPROVED"){
 
-  isProcessing = true;
+        playSuccess();
 
-  html5QrCode.pause();
+        screen.className =
+        "result-screen approved";
 
-  fetch(
-    `${API_URL}?action=scan&id=${encodeURIComponent(id)}&authority=${encodeURIComponent(authority)}`
-  )
+        content.innerHTML = `
 
-  .then(r => r.json())
+            <div class="big-status">
+            ✓ APPROVED
+            </div>
 
-  .then(res => {
+            <div class="info">
+            Unique ID: ${res.id}
+            </div>
 
-    showResult(res);
+            <div class="info">
+            Name: ${res.name}
+            </div>
 
-    setTimeout(() => {
+            <div class="info">
+            Gender: ${res.gender}
+            </div>
 
-      html5QrCode.resume();
+            <div class="info">
+            Age: ${res.age}
+            </div>
 
-      isProcessing = false;
+            <div class="info">
+            Facilitator: ${res.facilitator}
+            </div>
 
-    }, 1500);
+            <div class="info">
+            Passcode: ${res.passcode}
+            </div>
 
-  })
+            <div class="info">
+            Authority: ${currentAuthority}
+            </div>
 
-  .catch(err => {
+        `;
 
-    alert(err);
+    }else{
 
-    html5QrCode.resume();
+        playFailure();
 
-    isProcessing = false;
+        screen.className =
+        "result-screen denied";
 
-  });
+        content.innerHTML = `
+
+            <div class="big-status">
+            ✖ DENIED
+            </div>
+
+            <div class="info">
+            Unknown QR Code
+            </div>
+
+            <div class="info">
+            ${res.id}
+            </div>
+
+        `;
+
+    }
+
+    screen.style.display = "flex";
 
 }
 
 /*
-|--------------------------------------------------------------------------
-| SHOW RESULT
-|--------------------------------------------------------------------------
+--------------------------------------------------
+SUCCESS BEEP
+--------------------------------------------------
 */
-function showResult(res) {
 
-  const approved =
-    res.status === "APPROVED";
+function playSuccess(){
 
-  document.getElementById("result").innerHTML = `
+    const ctx =
+    new(window.AudioContext ||
+    window.webkitAudioContext)();
 
-    <div class="card ${approved ? "approved" : "denied"}">
+    const osc =
+    ctx.createOscillator();
 
-      <h2>${res.status}</h2>
+    const gain =
+    ctx.createGain();
 
-      <p><b>Unique ID:</b> ${res.id}</p>
+    osc.type="sine";
+    osc.frequency.value=900;
 
-      <p><b>Name:</b> ${res.name}</p>
+    osc.connect(gain);
+    gain.connect(ctx.destination);
 
-      <p><b>Gender:</b> ${res.gender}</p>
+    gain.gain.value=0.3;
 
-      <p><b>Age:</b> ${res.age}</p>
+    osc.start();
 
-      <p><b>Facilitator:</b> ${res.facilitator}</p>
+    osc.stop(ctx.currentTime + 0.15);
 
-      <p><b>Passcode:</b> ${res.passcode}</p>
+}
 
-      <p>
-      <b>Time:</b>
-      ${new Date(res.timestamp).toLocaleTimeString()}
-      </p>
+/*
+--------------------------------------------------
+FAILURE ALARM
+--------------------------------------------------
+*/
 
-    </div>
+function playFailure(){
 
-  `;
+    const ctx =
+    new(window.AudioContext ||
+    window.webkitAudioContext)();
+
+    [0,0.25,0.5].forEach(offset => {
+
+        const osc =
+        ctx.createOscillator();
+
+        const gain =
+        ctx.createGain();
+
+        osc.type="sawtooth";
+        osc.frequency.value=750;
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        gain.gain.setValueAtTime(
+            0.4,
+            ctx.currentTime + offset
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+            0.01,
+            ctx.currentTime + offset + 0.18
+        );
+
+        osc.start(
+            ctx.currentTime + offset
+        );
+
+        osc.stop(
+            ctx.currentTime + offset + 0.18
+        );
+
+    });
 
 }
 
