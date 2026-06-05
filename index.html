@@ -57,23 +57,10 @@ button{
 <h2>QR Entry Scanner</h2>
 
 <select id="authority">
-
-<option value="">
-Select Security Authority
-</option>
-
-<option value="Gate 1">
-Gate 1
-</option>
-
-<option value="Gate 2">
-Gate 2
-</option>
-
-<option value="Main Desk">
-Main Desk
-</option>
-
+  <option value="">Select Security Authority</option>
+  <option value="Gate 1">Gate 1</option>
+  <option value="Gate 2">Gate 2</option>
+  <option value="Main Desk">Main Desk</option>
 </select>
 
 <br>
@@ -96,18 +83,19 @@ Start Scanner
 <script>
 
 const API_URL =
-"https://script.google.com/macros/s/AKfycbyrPDTSsLDMcEYAbtcwb5ekWJB1LHWHNGtdjkLYkEM9zSVCfy2sL34WmOGG_O9QAIIFzA/exec";
+"https://script.google.com/macros/s/AKfycbzv74q75qmuVk_UiNmEw-PM-8oWcjguyDBiS3ZPdppgY8nH0v7PkAY2vZYLCoHwdwPj0w/exec";
 
 let html5QrCode;
-let lastScan="";
-let lastTime=0;
+let lastScan = "";
+let lastTime = 0;
+let isProcessing = false;
 
 /*
 |--------------------------------------------------------------------------
-| LOGIN FIRST
+| LOGIN
 |--------------------------------------------------------------------------
 */
-function loginAndStart(){
+function loginAndStart() {
 
   const authority =
     document.getElementById("authority").value;
@@ -115,38 +103,34 @@ function loginAndStart(){
   const passcode =
     document.getElementById("passcode").value;
 
-  if(!authority){
+  if (!authority) {
     alert("Select Security Authority");
     return;
   }
 
-  if(!passcode){
+  if (!passcode) {
     alert("Enter Passcode");
     return;
   }
 
-  const loginUrl =
-    `${API_URL}?action=login&authority=${encodeURIComponent(authority)}&passcode=${encodeURIComponent(passcode)}`;
+  fetch(
+    `${API_URL}?action=login&authority=${encodeURIComponent(authority)}&passcode=${encodeURIComponent(passcode)}`
+  )
 
-  fetch(loginUrl)
+  .then(r => r.json())
 
-  .then(r=>r.json())
+  .then(res => {
 
-  .then(res=>{
-
-    if(res.status==="AUTHORIZED"){
-
+    if (res.status === "AUTHORIZED") {
       startScanner(authority);
-
-    }else{
-
+    }
+    else {
       alert("Invalid Passcode");
-
     }
 
   })
 
-  .catch(err=>alert(err));
+  .catch(err => alert(err));
 
 }
 
@@ -155,35 +139,35 @@ function loginAndStart(){
 | START CAMERA
 |--------------------------------------------------------------------------
 */
-function startScanner(authority){
+function startScanner(authority) {
 
   navigator.mediaDevices.getUserMedia({
-    video:true
+    video: true
   })
 
-  .then(()=>{
+  .then(() => {
 
     html5QrCode =
       new Html5Qrcode("scanner");
 
     html5QrCode.start(
 
-      {facingMode:"environment"},
+      { facingMode: "environment" },
 
       {
-        fps:10,
-        qrbox:250
+        fps: 10,
+        qrbox: 250
       },
 
-      (decodedText)=>{
-        handleScan(decodedText,authority);
+      (decodedText) => {
+        handleScan(decodedText, authority);
       }
 
     );
 
   })
 
-  .catch(()=>{
+  .catch(() => {
     alert("Camera Permission Denied");
   });
 
@@ -191,33 +175,60 @@ function startScanner(authority){
 
 /*
 |--------------------------------------------------------------------------
-| PROCESS SCAN
+| SCAN
 |--------------------------------------------------------------------------
 */
-function handleScan(id,authority){
+function handleScan(id, authority) {
 
-  const now=Date.now();
-
-  if(
-    id===lastScan &&
-    now-lastTime<2000
-  ){
+  if (isProcessing) {
     return;
   }
 
-  lastScan=id;
-  lastTime=now;
+  const now = Date.now();
 
-  const url=
-    `${API_URL}?action=scan&id=${encodeURIComponent(id)}&authority=${encodeURIComponent(authority)}`;
+  if (
+    id === lastScan &&
+    now - lastTime < 3000
+  ) {
+    return;
+  }
 
-  fetch(url)
+  lastScan = id;
+  lastTime = now;
 
-  .then(r=>r.json())
+  isProcessing = true;
 
-  .then(showResult)
+  html5QrCode.pause();
 
-  .catch(err=>alert(err));
+  fetch(
+    `${API_URL}?action=scan&id=${encodeURIComponent(id)}&authority=${encodeURIComponent(authority)}`
+  )
+
+  .then(r => r.json())
+
+  .then(res => {
+
+    showResult(res);
+
+    setTimeout(() => {
+
+      html5QrCode.resume();
+
+      isProcessing = false;
+
+    }, 1500);
+
+  })
+
+  .catch(err => {
+
+    alert(err);
+
+    html5QrCode.resume();
+
+    isProcessing = false;
+
+  });
 
 }
 
@@ -226,17 +237,14 @@ function handleScan(id,authority){
 | SHOW RESULT
 |--------------------------------------------------------------------------
 */
-function showResult(res){
+function showResult(res) {
 
-  const box=
-    document.getElementById("result");
+  const approved =
+    res.status === "APPROVED";
 
-  const approved=
-    res.status==="APPROVED";
+  document.getElementById("result").innerHTML = `
 
-  box.innerHTML=`
-
-    <div class="card ${approved?'approved':'denied'}">
+    <div class="card ${approved ? "approved" : "denied"}">
 
       <h2>${res.status}</h2>
 
@@ -253,13 +261,14 @@ function showResult(res){
       <p><b>Passcode:</b> ${res.passcode}</p>
 
       <p>
-        <b>Time:</b>
-        ${new Date(res.timestamp).toLocaleTimeString()}
+      <b>Time:</b>
+      ${new Date(res.timestamp).toLocaleTimeString()}
       </p>
 
     </div>
 
   `;
+
 }
 
 </script>
