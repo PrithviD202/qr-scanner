@@ -240,9 +240,7 @@ SCAN
 
 function onScanSuccess(decodedText){
 
-    if(isProcessing){
-        return;
-    }
+    if(isProcessing) return;
 
     const now = Date.now();
 
@@ -258,15 +256,11 @@ function onScanSuccess(decodedText){
 
     isProcessing = true;
 
-    html5QrCode.pause();
-
     fetch(
         API_URL +
         "?action=scan" +
-        "&id=" +
-        encodeURIComponent(decodedText.trim()) +
-        "&authority=" +
-        encodeURIComponent(currentAuthority)
+        "&id=" + encodeURIComponent(decodedText.trim()) +
+        "&authority=" + encodeURIComponent(currentAuthority)
     )
     .then(r => r.json())
     .then(showResult)
@@ -274,16 +268,13 @@ function onScanSuccess(decodedText){
 
         setTimeout(() => {
 
-            html5QrCode.resume();
-
             isProcessing = false;
 
-        },1500);
+        }, 2000);
 
     });
 
 }
-
 /*
 --------------------------------------------------
 RESULT UI
