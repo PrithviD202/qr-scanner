@@ -1,58 +1,55 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- QR Scanner Library -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <style>
-    body {
-      font-family: Arial;
-      text-align: center;
-      background: #111;
-      color: white;
-      margin: 0;
-      padding: 0;
-    }
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 
-    h2 {
-      margin-top: 15px;
-    }
+<style>
 
-    select, button {
-      padding: 12px;
-      font-size: 16px;
-      margin: 5px;
-      border-radius: 8px;
-      border: none;
-    }
+body{
+  font-family:Arial;
+  background:#111;
+  color:white;
+  text-align:center;
+  margin:0;
+}
 
-    button {
-      background: #007bff;
-      color: white;
-    }
+select,input,button{
+  padding:12px;
+  margin:5px;
+  font-size:16px;
+  border-radius:8px;
+  border:none;
+}
 
-    #scanner {
-      width: 100%;
-      margin-top: 10px;
-    }
+button{
+  background:#1976d2;
+  color:white;
+}
 
-    .card {
-      margin: 10px;
-      padding: 20px;
-      border-radius: 12px;
-      font-size: 18px;
-    }
+.card{
+  margin:10px;
+  padding:20px;
+  border-radius:12px;
+}
 
-    .approved {
-      background: #0f9d58;
-    }
+.approved{
+  background:#0f9d58;
+}
 
-    .denied {
-      background: #d93025;
-    }
-  </style>
+.denied{
+  background:#d93025;
+}
+
+#scanner{
+  width:100%;
+  margin-top:10px;
+}
+
+</style>
+
 </head>
 
 <body>
@@ -60,93 +57,208 @@
 <h2>QR Entry Scanner</h2>
 
 <select id="authority">
-  <option value="">Select Security Authority</option>
-  <option>Gate 1</option>
-  <option>Gate 2</option>
-  <option>Main Desk</option>
+
+<option value="">
+Select Security Authority
+</option>
+
+<option value="Gate 1">
+Gate 1
+</option>
+
+<option value="Gate 2">
+Gate 2
+</option>
+
+<option value="Main Desk">
+Main Desk
+</option>
+
 </select>
 
 <br>
 
-<button onclick="startScanner()">Start Scanner</button>
+<input
+type="password"
+id="passcode"
+placeholder="Authority Passcode">
+
+<br>
+
+<button onclick="loginAndStart()">
+Start Scanner
+</button>
 
 <div id="scanner"></div>
+
 <div id="result"></div>
 
 <script>
 
-const API_URL = "https://script.google.com/macros/s/AKfycbzAXayC2ihWNVdLVJ0ET0rcnq9SupMWDDA5YX5oKwwGMApP7ncRthIXXVgGLR4ZZ0p2hg/exec";
+const API_URL =
+"https://script.google.com/macros/s/AKfycbzAXayC2ihWNVdLVJ0ET0rcnq9SupMWDDA5YX5oKwwGMApP7ncRthIXXVgGLR4ZZ0p2hg/exec";
 
 let html5QrCode;
-let lastScan = "";
-let lastTime = 0;
+let lastScan="";
+let lastTime=0;
 
-// Start scanner
-function startScanner() {
-  const authority = document.getElementById("authority").value;
+/*
+|--------------------------------------------------------------------------
+| LOGIN FIRST
+|--------------------------------------------------------------------------
+*/
+function loginAndStart(){
 
-  if (!authority) {
+  const authority =
+    document.getElementById("authority").value;
+
+  const passcode =
+    document.getElementById("passcode").value;
+
+  if(!authority){
     alert("Select Security Authority");
     return;
   }
 
-  navigator.mediaDevices.getUserMedia({ video: true })
-    .then(() => {
-      html5QrCode = new Html5Qrcode("scanner");
-
-      html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (decodedText) => handleScan(decodedText, authority)
-      );
-    })
-    .catch(() => alert("Camera permission denied"));
-}
-
-// Handle QR scan
-function handleScan(id, authority) {
-  const now = Date.now();
-
-  if (id === lastScan && now - lastTime < 2000) return;
-
-  lastScan = id;
-  lastTime = now;
-
-  const url = `${API_URL}?id=${encodeURIComponent(id.trim())}&authority=${encodeURIComponent(authority)}`;
-
-  fetch(url)
-    .then(res => res.json())
-    .then(showResult)
-    .catch(err => alert("Error: " + err));
-}
-
-// Show result
-function showResult(res) {
-  const box = document.getElementById("result");
-
-  if (!res || res.error) {
-    box.innerHTML = `
-      <div class="card denied">
-        <h2>ERROR</h2>
-        <p>${res?.error || "Unknown error"}</p>
-      </div>
-    `;
+  if(!passcode){
+    alert("Enter Passcode");
     return;
   }
 
-  const isApproved = res.status === "APPROVED";
+  const loginUrl =
+    `${API_URL}?action=login&authority=${encodeURIComponent(authority)}&passcode=${encodeURIComponent(passcode)}`;
 
-  box.innerHTML = `
-    <div class="card ${isApproved ? 'approved' : 'denied'}">
+  fetch(loginUrl)
+
+  .then(r=>r.json())
+
+  .then(res=>{
+
+    if(res.status==="AUTHORIZED"){
+
+      startScanner(authority);
+
+    }else{
+
+      alert("Invalid Passcode");
+
+    }
+
+  })
+
+  .catch(err=>alert(err));
+
+}
+
+/*
+|--------------------------------------------------------------------------
+| START CAMERA
+|--------------------------------------------------------------------------
+*/
+function startScanner(authority){
+
+  navigator.mediaDevices.getUserMedia({
+    video:true
+  })
+
+  .then(()=>{
+
+    html5QrCode =
+      new Html5Qrcode("scanner");
+
+    html5QrCode.start(
+
+      {facingMode:"environment"},
+
+      {
+        fps:10,
+        qrbox:250
+      },
+
+      (decodedText)=>{
+        handleScan(decodedText,authority);
+      }
+
+    );
+
+  })
+
+  .catch(()=>{
+    alert("Camera Permission Denied");
+  });
+
+}
+
+/*
+|--------------------------------------------------------------------------
+| PROCESS SCAN
+|--------------------------------------------------------------------------
+*/
+function handleScan(id,authority){
+
+  const now=Date.now();
+
+  if(
+    id===lastScan &&
+    now-lastTime<2000
+  ){
+    return;
+  }
+
+  lastScan=id;
+  lastTime=now;
+
+  const url=
+    `${API_URL}?action=scan&id=${encodeURIComponent(id)}&authority=${encodeURIComponent(authority)}`;
+
+  fetch(url)
+
+  .then(r=>r.json())
+
+  .then(showResult)
+
+  .catch(err=>alert(err));
+
+}
+
+/*
+|--------------------------------------------------------------------------
+| SHOW RESULT
+|--------------------------------------------------------------------------
+*/
+function showResult(res){
+
+  const box=
+    document.getElementById("result");
+
+  const approved=
+    res.status==="APPROVED";
+
+  box.innerHTML=`
+
+    <div class="card ${approved?'approved':'denied'}">
+
       <h2>${res.status}</h2>
+
       <p><b>Unique ID:</b> ${res.id}</p>
+
       <p><b>Name:</b> ${res.name}</p>
+
       <p><b>Gender:</b> ${res.gender}</p>
+
       <p><b>Age:</b> ${res.age}</p>
+
       <p><b>Facilitator:</b> ${res.facilitator}</p>
+
       <p><b>Passcode:</b> ${res.passcode}</p>
-      <p><b>Time:</b> ${new Date(res.timestamp).toLocaleTimeString()}</p>
+
+      <p>
+        <b>Time:</b>
+        ${new Date(res.timestamp).toLocaleTimeString()}
+      </p>
+
     </div>
+
   `;
 }
 
