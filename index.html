@@ -264,13 +264,11 @@ function onScanSuccess(decodedText){
     )
     .then(r => r.json())
     .then(showResult)
-    .finally(() => {
+    .catch(err => {
 
-        setTimeout(() => {
+        alert("Scan Error: " + err);
 
-            isProcessing = false;
-
-        }, 2000);
+        isProcessing = false;
 
     });
 
@@ -330,6 +328,23 @@ function showResult(res){
             Authority: ${currentAuthority}
             </div>
 
+            <br><br>
+
+            <button
+                onclick="continueScanning()"
+                style="
+                    padding:16px 40px;
+                    font-size:22px;
+                    border:none;
+                    border-radius:12px;
+                    background:white;
+                    color:black;
+                    font-weight:bold;
+                    cursor:pointer;
+                ">
+                CONTINUE
+            </button>
+
         `;
 
     }else{
@@ -353,21 +368,38 @@ function showResult(res){
             ${res.id}
             </div>
 
+            <br><br>
+
+            <button
+                onclick="continueScanning()"
+                style="
+                    padding:16px 40px;
+                    font-size:22px;
+                    border:none;
+                    border-radius:12px;
+                    background:white;
+                    color:black;
+                    font-weight:bold;
+                    cursor:pointer;
+                ">
+                CONTINUE
+            </button>
+
         `;
 
     }
 
     screen.style.display = "flex";
 
-    // Hide after 2 seconds
-    setTimeout(() => {
-
-        screen.style.display = "none";
-
-    }, 2000);
-
 }
 
+function continueScanning(){
+
+    document.getElementById("resultScreen").style.display = "none";
+
+    isProcessing = false;
+
+}
 /*
 --------------------------------------------------
 SUCCESS BEEP
