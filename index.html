@@ -1,58 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- QR Scanner Library -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 
-  <style>
-    body {
-      font-family: Arial;
-      text-align: center;
-      background: #111;
-      color: white;
-      margin: 0;
-      padding: 0;
-    }
-
-    h2 {
-      margin-top: 15px;
-    }
-
-    select, button {
-      padding: 12px;
-      font-size: 16px;
-      margin: 5px;
-      border-radius: 8px;
-      border: none;
-    }
-
-    button {
-      background: #007bff;
-      color: white;
-    }
-
-    #scanner {
-      width: 100%;
-      margin-top: 10px;
-    }
-
-    .card {
-      margin: 10px;
-      padding: 20px;
-      border-radius: 12px;
-      font-size: 18px;
-    }
-
-    .approved {
-      background: #0f9d58;
-    }
-
-    .denied {
-      background: #d93025;
-    }
-  </style>
+<style>
+body { font-family: Arial; text-align: center; background: #111; color: white; }
+select, input, button { padding: 12px; margin: 5px; font-size: 16px; border-radius: 8px; }
+#scanner { margin-top: 10px; }
+.card { margin: 10px; padding: 20px; border-radius: 10px; }
+.approved { background: green; }
+.denied { background: red; }
+</style>
 </head>
 
 <body>
@@ -68,51 +28,51 @@
 
 <br>
 
+<input type="password" id="passcode" placeholder="4-digit passcode" maxlength="4">
+
+<br>
+
 <button onclick="startScanner()">Start Scanner</button>
 
 <div id="scanner"></div>
 <div id="result"></div>
 
+<!-- 🔊 Sounds -->
+<audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+<audio id="failSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
 <script>
 
-const API_URL = "https://script.google.com/macros/s/AKfycbxSzTV_UplJHjI9KVSk_5B9vkf1KraYTy97tF1FlKQHKufzPKQun2NPFF-HVE_rybgB1w/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxpOcfnt7VVQptLGorJ_Cj0kehz6IILyiZ6-Jbo0DP5h_7t-VpTmdvzwTONm6txj6ttxA/exec";
 
 let html5QrCode;
 let lastScan = "";
 let lastTime = 0;
 
-// Start scanner
 function startScanner() {
   const authority = document.getElementById("authority").value;
+  const passcode = document.getElementById("passcode").value;
 
-  if (!authority) {
-    alert("Select Security Authority");
-    return;
-  }
+  if (!authority) return alert("Select Security Authority");
+  if (passcode.length !== 4) return alert("Enter 4-digit passcode");
 
-  navigator.mediaDevices.getUserMedia({ video: true })
-    .then(() => {
-      html5QrCode = new Html5Qrcode("scanner");
+  html5QrCode = new Html5Qrcode("scanner");
 
-      html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (decodedText) => handleScan(decodedText, authority)
-      );
-    })
-    .catch(() => alert("Camera permission denied"));
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
+    (decodedText) => handleScan(decodedText, authority, passcode)
+  );
 }
 
-// Handle QR scan
-function handleScan(id, authority) {
+function handleScan(id, authority, passcode) {
   const now = Date.now();
-
   if (id === lastScan && now - lastTime < 2000) return;
 
   lastScan = id;
   lastTime = now;
 
-  const url = `${API_URL}?id=${encodeURIComponent(id.trim())}&authority=${encodeURIComponent(authority)}`;
+  const url = `${API_URL}?id=${encodeURIComponent(id.trim())}&authority=${authority}&passcode=${passcode}`;
 
   fetch(url)
     .then(res => res.json())
@@ -120,32 +80,24 @@ function handleScan(id, authority) {
     .catch(err => alert("Error: " + err));
 }
 
-// Show result
 function showResult(res) {
   const box = document.getElementById("result");
 
-  if (!res || res.error) {
-    box.innerHTML = `
-      <div class="card denied">
-        <h2>ERROR</h2>
-        <p>${res?.error || "Unknown error"}</p>
-      </div>
-    `;
-    return;
+  if (res.status === "APPROVED") {
+    document.getElementById("successSound").play();
+  } else {
+    document.getElementById("failSound").play();
   }
 
-  const isApproved = res.status === "APPROVED";
-
   box.innerHTML = `
-    <div class="card ${isApproved ? 'approved' : 'denied'}">
+    <div class="card ${res.status === 'APPROVED' ? 'approved' : 'denied'}">
       <h2>${res.status}</h2>
-      <p><b>Unique ID:</b> ${res.id}</p>
-      <p><b>Name:</b> ${res.name}</p>
-      <p><b>Gender:</b> ${res.gender}</p>
-      <p><b>Age:</b> ${res.age}</p>
-      <p><b>Facilitator:</b> ${res.facilitator}</p>
-      <p><b>Passcode:</b> ${res.passcode}</p>
-      <p><b>Time:</b> ${new Date(res.timestamp).toLocaleTimeString()}</p>
+      <p>ID: ${res.id || ''}</p>
+      <p>Name: ${res.name || ''}</p>
+      <p>Gender: ${res.gender || ''}</p>
+      <p>Age: ${res.age || ''}</p>
+      <p>Facilitator: ${res.facilitator || ''}</p>
+      <p>Time: ${new Date().toLocaleTimeString()}</p>
     </div>
   `;
 }
