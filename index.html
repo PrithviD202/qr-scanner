@@ -104,6 +104,15 @@ button{
 Start Scanner
 </button>
 
+<br>
+<input
+    id="manualSearch"
+    placeholder="Search by Unique ID or Name">
+
+<button onclick="manualSearch()">
+🔍 Manual Search
+</button>
+    
 <div id="scanner"></div>
 
 </div>
@@ -398,6 +407,45 @@ function continueScanning(){
     document.getElementById("resultScreen").style.display = "none";
 
     isProcessing = false;
+
+}
+
+function manualSearch(){
+
+    if(!currentAuthority){
+
+        alert(
+          "Login as Security Authority first"
+        );
+
+        return;
+    }
+    
+    const query =
+    document.getElementById("manualSearch")
+    .value
+    .trim();
+
+    if(!query){
+        alert("Enter Name or Unique ID");
+        return;
+    }
+
+    fetch(
+        API_URL +
+        "?action=search" +
+        "&query=" +
+        encodeURIComponent(query) +
+        "&authority=" +
+        encodeURIComponent(currentAuthority)
+    )
+    .then(r => r.json())
+    .then(showResult)
+    .catch(err => {
+
+        alert("Search Error: " + err);
+
+    });
 
 }
 /*
