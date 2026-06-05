@@ -124,7 +124,7 @@ Start Scanner
 <script>
 
 const API_URL =
-"https://script.google.com/macros/s/AKfycbxUsrsfKhKFaQt4L4dKoOENKqKesc-uMuZCc5z7caThAs9KxjmX6zt2lgC5AGXifHOaPg/exec";
+"https://script.google.com/macros/s/AKfycbwV2Eq3qAA8IcggsWN5tGDCiOaEFst32ftKEmoXTfQx4HchqT6W5UQqW6ny_FajjTcu9Q/exec";
 
 let html5QrCode = null;
 let currentAuthority = "";
@@ -368,17 +368,17 @@ function showResult(res){
             <div class="big-status">
             ✖ DENIED
             </div>
-
+        
             <div class="info">
             Unknown QR Code
             </div>
-
+        
             <div class="info">
             ${res.id}
             </div>
-
+        
             <br><br>
-
+        
             <button
                 onclick="continueScanning()"
                 style="
@@ -389,11 +389,26 @@ function showResult(res){
                     background:white;
                     color:black;
                     font-weight:bold;
-                    cursor:pointer;
                 ">
                 CONTINUE
             </button>
-
+        
+            <br><br>
+        
+            <button
+                onclick="openManualVerification()"
+                style="
+                    padding:16px 40px;
+                    font-size:22px;
+                    border:none;
+                    border-radius:12px;
+                    background:#ffeb3b;
+                    color:black;
+                    font-weight:bold;
+                ">
+                MANUAL VERIFY
+            </button>
+        
         `;
 
     }
@@ -480,6 +495,63 @@ function playSuccess(){
 
 }
 
+function openManualVerification(){
+
+    document.getElementById(
+        "manualModal"
+    ).style.display = "block";
+
+}
+
+function closeManualVerification(){
+
+    document.getElementById(
+        "manualModal"
+    ).style.display = "none";
+
+}
+
+function submitManualVerification(){
+
+    const uniqueId =
+    document.getElementById(
+        "manualUniqueId"
+    ).value.trim();
+
+    const name =
+    document.getElementById(
+        "manualName"
+    ).value.trim();
+
+    const facilitator =
+    document.getElementById(
+        "manualFacilitator"
+    ).value.trim();
+
+    const passcode =
+    document.getElementById(
+        "manualPasscode"
+    ).value.trim();
+
+    fetch(
+        API_URL +
+        "?action=manualVerify" +
+        "&uniqueId=" + encodeURIComponent(uniqueId) +
+        "&name=" + encodeURIComponent(name) +
+        "&facilitator=" + encodeURIComponent(facilitator) +
+        "&passcode=" + encodeURIComponent(passcode) +
+        "&authority=" + encodeURIComponent(currentAuthority)
+    )
+    .then(r => r.json())
+    .then(res => {
+
+        closeManualVerification();
+
+        showResult(res);
+
+    });
+
+}
 /*
 --------------------------------------------------
 FAILURE ALARM
@@ -529,6 +601,27 @@ function playFailure(){
 }
 
 </script>
+        placeholder="Name">
 
+    <input
+        id="manualFacilitator"
+        placeholder="Facilitator">
+
+    <input
+        id="manualPasscode"
+        placeholder="Passcode">
+
+    <br>
+
+    <button onclick="submitManualVerification()">
+        VERIFY
+    </button>
+
+    <button onclick="closeManualVerification()">
+        CANCEL
+    </button>
+
+</div>
+    
 </body>
 </html>
