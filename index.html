@@ -33,7 +33,7 @@
 
 <script>
 
-const API_URL = "PASTE_YOUR_EXEC_URL_HERE";
+const API_URL = "https://script.google.com/macros/s/AKfycbxNevsQVTPZhWWoQ3hKHgHKQrimh1PGCKxD3qUUEPdJpKdUj60zqrPThcTumkcwhu2gTw/exec";
 
 let html5QrCode;
 let lastScan = "";
@@ -70,13 +70,16 @@ function handleScan(id, authority) {
 
   fetch(API_URL, {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
     body: JSON.stringify({ id, authority })
   })
   .then(res => res.json())
   .then(showResult)
   .catch(err => alert("Error: " + err));
 }
-
+  
 function showResult(res) {
   const box = document.getElementById("result");
 
